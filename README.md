@@ -23,8 +23,8 @@ Root is a financial ledger and investment allocation platform built around **aut
 
 ## Contributing
 
-1. Branch from `main` for changes (`feature/...` or `fix/...`).
+1. Branch from `develop` for changes (`feature/...` or `fix/...`).
 2. Open a pull request; keep commits focused and messages clear.
-3. Rebase or merge `main` before review if the branch is long-lived.
+3. Rebase or merge `develop` before review if the branch is long-lived.
 
 ---
