@@ -35,6 +35,13 @@ INSTALLED_APPS = [
 
     # load custom apps
     'accounts',
+    'permissions',
+]
+
+# Set custom user model
+AUTH_USER_MODEL = 'accounts.User'
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.RootPermissionBackend',
 ]
 
 MIDDLEWARE = [
