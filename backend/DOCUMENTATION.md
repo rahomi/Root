@@ -1,79 +1,93 @@
-# Root Backend
+# Root Backend Documentation
 
-Backend service for the Root association management app. The current implementation is a Django project scaffold with a custom user model, a fine-grained permission system, and PostgreSQL-based configuration.
+## Project Stage
 
-## Current Status
+The backend is now in the domain-model and workflow-foundation stage. The codebase contains model definitions for:
 
-This backend is in early scaffold stage.
+- authentication and user management
+- fine-grained permissions
+- member lifecycle handling
+- audit logging
+- capital submission requests and attachments
+- member capital ledger entries
+- investments
+- investment snapshots
+- profit/loss distributions
+- early reporting logic
 
-Implemented so far:
+What is implemented:
 
-- Django project bootstrap under `rootBackend/`
-- Custom auth user model in `accounts`
-- Fine-grained permission catalog and per-user grants in `permissions`
-- Custom Django auth backend that routes permission checks through the project permission tables
-- View decorator for permission-protected endpoints
-- PostgreSQL environment-based database configuration
+- Django project bootstrap and settings
+- PostgreSQL-backed data model definitions across the core business modules
+- custom user model and custom permission backend
+- immutable audit, ledger, and snapshot patterns
+- media configuration and signed-URL storage helpers for submission attachments
+- basic report query logic for member statements
 
-Not implemented yet:
+What is still missing or incomplete:
 
-- Business domain apps for members, submissions, ledger, investments, reports, and audit logs
-- API endpoints beyond the default Django admin route
-- Serializers, services, and application-layer business logic
-- Initial data migrations for permission seeding
-- Pinned dependency manifest such as `requirements.txt`
+- real API endpoints and URL wiring beyond `/admin/`
+- service layer / use-case layer for the business workflows referenced in comments
+- migrations for several implemented apps
+- admin customization for the current models
+- full test coverage
+- production settings split and deployment-ready configuration
+- cleaned separation of concerns in a few places, such as report logic living in `reports/models.py`
 
-## Project Structure
+At this stage, the backend should be described as a modeled business core with incomplete delivery surfaces.
+
+## Current Structure
 
 ```text
 backend/
 ├── manage.py
 ├── .env.example
-├── README.md
+├── DOCUMENTATION.md
 ├── rootBackend/
 │   ├── settings.py
 │   ├── urls.py
 │   ├── asgi.py
 │   └── wsgi.py
 ├── accounts/
-│   ├── apps.py
-│   ├── admin.py
-│   ├── backends.py
-│   ├── models.py
-│   ├── tests.py
-│   └── views.py
-└── permissions/
-    ├── apps.py
-    ├── admin.py
-    ├── decorators.py
-    ├── models.py
-    ├── tests.py
-    └── views.py
+├── permissions/
+├── members/
+├── audit/
+├── submissions/
+├── ledger/
+├── investments/
+├── snapshots/
+├── distributions/
+└── reports/
 ```
 
-## Technology Choices
+Each app exists, but most are currently model-centric. Views, routes, serializers, and service orchestration are not yet implemented.
 
-The current codebase is built around:
-
-- Django for the core backend framework
-- PostgreSQL as the configured database backend
-- Django REST Framework and Simple JWT as installed application dependencies in settings
-- `python-dotenv` for loading environment variables from `.env`
-
-Only Django admin is wired into the URL configuration at this stage.
-
-## Configuration
+## Core Configuration
 
 Core configuration lives in `rootBackend/settings.py`.
 
-Important settings already in place:
+Current configuration highlights:
 
-- `INSTALLED_APPS` includes `accounts` and `permissions`
-- `AUTH_USER_MODEL = 'accounts.User'` enables the custom user model
-- `AUTHENTICATION_BACKENDS = ['accounts.backends.RootPermissionBackend']` enables custom permission resolution
-- `DATABASES['default']` is configured for PostgreSQL using environment variables
+- database engine: PostgreSQL
+- installed framework apps: Django admin/auth/session stack, Django REST Framework, Simple JWT
+- installed local apps:
+  - `accounts`
+  - `permissions`
+  - `members`
+  - `audit`
+  - `submissions`
+  - `ledger`
+  - `investments`
+  - `distributions`
+  - `snapshots`
+  - `reports`
+- custom user model: `accounts.User`
+- custom auth backend: `accounts.backends.RootPermissionBackend`
+- media storage configured with:
+  - `MEDIA_ROOT = BASE_DIR / "media"`
+  - `MEDIA_URL = "/media"`
 
-Environment variables expected by the project are documented in `.env.example`:
+Environment variables expected in `.env`:
 
 - `SECRET_KEY`
 - `DB_NAME`
@@ -82,61 +96,96 @@ Environment variables expected by the project are documented in `.env.example`:
 - `DB_HOST`
 - `DB_PORT`
 
-## Accounts App
+## Current URL Surface
 
-The `accounts` app defines the system user model and authentication behavior.
+`rootBackend/urls.py` currently exposes only:
 
-### User Model
+- `/admin/`
 
-`accounts.models.User` is a custom Django user model built on `AbstractBaseUser` and `PermissionsMixin`.
+This is the main architectural gap right now: the project has substantial model design, but very little HTTP surface wired into the Django project.
+
+## App Overview
+
+### Accounts
+
+The `accounts` app defines the custom authentication model and the project-level permission lookup behavior.
+
+#### `accounts.models.User`
+
+This is a custom Django user model based on `AbstractBaseUser` and `PermissionsMixin`.
 
 Key fields:
 
 - `user_id`: UUID primary key
-- `full_name`: display name of the user
-- `contact_no`: unique login identifier and username field
-- `email`: optional unique email address
-- `join_date`: date the user joined the association
-- `role`: high-level classification such as `SUPER_ADMIN`, `ADMIN`, or `MEMBER`
-- `status`: business status such as `ACTIVE` or `INACTIVE`
+- `full_name`: user display name
+- `contact_no`: unique login identifier
+- `email`: optional unique email
+- `join_date`: join date
+- `role`: coarse classification
+- `status`: active/inactive business status
 - `notes`: free-text notes
-- `is_staff`: Django admin access flag
-- `is_active`: Django authentication activation flag
-- `created_at` and `updated_at`: audit timestamps
+- `is_staff`: Django admin flag
+- `is_active`: authentication flag
+- `created_at`, `updated_at`: timestamps
 
-Authentication details:
+Authentication settings:
 
 - `USERNAME_FIELD = 'contact_no'`
 - `REQUIRED_FIELDS = ['full_name', 'join_date']`
 
-### User Manager
+#### `UserRole`
+
+Current role values:
+
+- `SUPER_ADMIN`
+- `ADMIN`
+- `MEMBER`
+
+Roles exist for classification, but the codebase is intentionally built to authorize behavior through explicit permission grants instead of role-only checks.
+
+#### `UserStatus`
+
+Current status values:
+
+- `ACTIVE`
+- `INACTIVE`
+
+#### `UserManager`
 
 `UserManager` provides:
 
-- `create_user()` for standard user creation
-- `create_superuser()` for admin creation with the expected Django flags
+- `create_user()`
+- `create_superuser()`
 
-### Permission Check Method
+#### `User.has_permission(code)`
 
-`User.has_permission(code)` is the project-level helper used for fine-grained authorization.
+This is the core fine-grained permission lookup helper. It checks `permissions.UserPermission` and returns `True` only if the user has a matching grant that is:
 
-It returns `True` only when the user has a matching permission grant that is:
-
-- linked to the user
 - active
-- not expired, or has no expiry date
+- not expired, or has no expiry
 
-This method is the core lookup used by both the custom auth backend and the permission decorator.
+#### `accounts.backends.RootPermissionBackend`
 
-## Permissions App
+This backend overrides Django permission checks so that `user.has_perm(...)` resolves through the project permission system rather than Django’s built-in model permission tables.
 
-The `permissions` app implements a fine-grained access control model.
+Current behavior:
 
-### PermissionCode
+- rejects anonymous users
+- rejects inactive users
+- returns `False` for object-level permission checks
+- returns `True` for Django superusers
+- extracts a code like `MANAGE_USERS` from strings such as `permissions.MANAGE_USERS`
+- delegates the actual lookup to `user.has_permission(code)`
 
-`PermissionCode` is a `TextChoices` enum containing the valid permission identifiers used throughout the system.
+### Permissions
 
-Current codes include:
+The `permissions` app implements the fine-grained authorization model.
+
+#### `PermissionCode`
+
+`PermissionCode` is the enum of allowed capability identifiers.
+
+Current values:
 
 - `APPROVE_SUBMISSION`
 - `POST_ADMIN_LEDGER`
@@ -148,165 +197,569 @@ Current codes include:
 - `VIEW_ALL_REPORTS`
 - `MANAGE_USERS`
 
-### Permission Model
+#### `Permission`
 
-`permissions.models.Permission` is the master permission catalog.
+`permissions.models.Permission` is the catalog of supported permissions.
 
-Purpose:
+Key fields:
 
-- stores one row per supported permission
-- ensures permission codes remain standardized
-- supports human-readable descriptions for admin or documentation use
-
-Fields:
-
-- `permission_id`: UUID primary key
-- `code`: unique permission code from `PermissionCode`
-- `description`: human-readable explanation
-
-### UserPermission Model
-
-`permissions.models.UserPermission` is the join model between users and permissions.
+- `permission_id`
+- `code`
+- `description`
 
 Purpose:
 
-- grants a specific permission to a specific user
-- records who granted the permission
-- supports expiry-based access
-- supports soft revocation without deleting history
+- standardize available permission names
+- provide a durable catalog for grants
 
-Fields:
+#### `UserPermission`
 
-- `user_permission_id`: UUID primary key
-- `user`: the user receiving the permission
-- `permission`: the granted permission
-- `granted_by`: user who issued the grant
-- `granted_at`: timestamp of grant creation
-- `expires_at`: optional permission expiry timestamp
-- `is_active`: active flag for soft revoke
-- `revoked_by`: user who revoked the permission
-- `revoked_at`: timestamp of revocation
+`permissions.models.UserPermission` is the join model between a user and a permission.
 
-Constraints and indexes:
+Key fields:
 
-- unique per `(user, permission)` so duplicate grants are not allowed
-- indexed by `(user, is_active)` for faster active-permission lookups
+- `user_permission_id`
+- `user`
+- `permission`
+- `granted_by`
+- `granted_at`
+- `expires_at`
+- `is_active`
+- `revoked_by`
+- `revoked_at`
 
-## Model Relationship
+Current rules:
 
-The fine-grained authorization model is centered around three classes:
+- unique per `(user, permission)`
+- supports temporary access
+- supports soft revocation
+- supports audit-style metadata about grant and revoke actions
 
-- `accounts.User`
-- `permissions.Permission`
-- `permissions.UserPermission`
+#### `permissions.decorators.require_permission(code)`
 
-Relationship summary:
+This decorator protects function-based views.
 
-- one user can have many permission grants
-- one permission can be granted to many users
-- `UserPermission` is the bridge table that connects them
+Behavior:
 
-Conceptually:
+- redirects unauthenticated users to login
+- raises `PermissionDenied` if the user lacks the required permission
+- allows the view to run when permission is present
+
+### Members
+
+The `members` app currently layers member behavior on top of the custom user model rather than introducing a separate member table.
+
+#### `MemberProfile`
+
+`members.models.MemberProfile` is a proxy model over `accounts.User`.
+
+Meaning:
+
+- it uses the same underlying database table as `accounts.User`
+- it adds member-specific query behavior and lifecycle behavior
+- it does not create a separate member table
+
+Current behavior:
+
+- `objects = ActiveMemberManager()` returns only active users
+- `all_members = models.Manager()` provides unfiltered access
+- `deactivate(actor)` marks the member inactive and logs the state change through the audit helper
+
+#### `ActiveMemberManager`
+
+This manager filters members to `status=ACTIVE`.
+
+### Audit
+
+The `audit` app provides immutable audit logging.
+
+#### `AuditAction`
+
+Current values:
+
+- `CREATE`
+- `UPDATE`
+- `APPROVE`
+- `REJECT`
+- `RELEASE_FUNDS`
+- `CLOSE`
+- `DISTRIBUTE`
+- `REVERSE`
+- `LOGIN`
+- `LOGOUT`
+- `GRANT_PERM`
+- `REVOKE_PERM`
+- `DEACTIVATE_USER`
+
+#### `AuditLog`
+
+`audit.models.AuditLog` stores append-only records of critical actions.
+
+Key fields:
+
+- `audit_id`
+- `entity_name`
+- `entity_id`
+- `action`
+- `actor`
+- `occurred_at`
+- `before_json`
+- `after_json`
+- `reason`
+
+Important behavior:
+
+- records are immutable after creation
+- updating an existing record raises `ValueError`
+- deleting a record raises `ValueError`
+
+#### `audit.utils.log_action(...)`
+
+This helper creates an `AuditLog` record and is already used by member deactivation logic.
+
+### Submissions
+
+The `submissions` app models member capital submission requests and their supporting files.
+
+#### Enums
+
+Current enums:
+
+- `RequestType`
+  - `INSTALLMENT`
+  - `SUBMISSION`
+- `PaymentChannel`
+  - `HAND_CASH`
+  - `BKASH`
+  - `BANK`
+  - `OTHER`
+- `RequestStatus`
+  - `PENDING`
+  - `APPROVED`
+  - `REJECTED`
+
+#### `FileAttachment`
+
+Stores uploaded attachment metadata.
+
+Key fields:
+
+- `file_id`
+- `uploaded_by`
+- `mime_type`
+- `byte_size`
+- `storage_key`
+- `original_filename`
+- `created_at`
+
+Important behavior:
+
+- `get_signed_url()` returns a time-limited signed URL instead of a public URL
+- the model defines `ALLOWED_MIME_TYPES`
+- the model defines `MAX_BYTE_SIZE`
+
+#### `CapitalSubmissionRequest`
+
+This is the main request record for member capital submissions.
+
+Key fields:
+
+- `request_id`
+- `user`
+- `request_type`
+- `amount`
+- `requested_at`
+- `txn_date`
+- `payment_channel`
+- `external_reference`
+- `notes`
+- `status`
+- `reviewed_by`
+- `reviewed_at`
+- `rejection_reason`
+- `resulting_ledger`
+
+Important relationship:
+
+- `resulting_ledger` is a one-to-one link to the ledger entry created when a request is approved
+
+This establishes a clean bridge between the approval workflow and the immutable financial ledger.
+
+#### `SubmissionAttachment`
+
+This is the junction table between submissions and files.
+
+Purpose:
+
+- allow multiple files to be attached to a single submission request
+- avoid embedding file fields directly in the submission record
+
+### Submission Storage Helpers
+
+`submissions.storage` contains helper functions for local file storage and signed access:
+
+- `generate_signed_url()`
+- `verify_signed_url()`
+- `save_upload()`
+- `delete_object()`
+
+The storage layer currently assumes local media storage with HMAC-signed URLs derived from Django’s `SECRET_KEY`.
+
+### Ledger
+
+The `ledger` app models the immutable member capital ledger.
+
+#### `EntryType`
+
+Current values:
+
+- `SUBMISSION`
+- `WITHDRAW`
+- `ADJUSTMENT`
+- `DISTRIBUTION`
+- `DISTRIBUTION_REVERSAL`
+
+#### `ReferenceType`
+
+Current values:
+
+- `INVESTMENT`
+- `MANUAL`
+- `SYSTEM`
+- `SUBMISSION_REQUEST`
+
+#### `LedgerEntryManager`
+
+Provides a `get_balance(user)` helper that aggregates the sum of ledger amounts for a user.
+
+#### `MemberCapitalLedgerEntry`
+
+This is the central financial ledger record.
+
+Key fields:
+
+- `ledger_id`
+- `user`
+- `entry_type`
+- `amount`
+- `currency`
+- `txn_date`
+- `reference_type`
+- `reference_id`
+- `comment`
+- `created_by`
+- `created_at`
+
+Important behavior:
+
+- entries are immutable
+- updating an existing row raises `ValueError`
+- deleting a row raises `ValueError`
+- reversals are intended to be recorded as compensating entries, not edits
+
+This is a strong accounting pattern and one of the more mature pieces of the current model layer.
+
+### Investments
+
+The `investments` app models the investment lifecycle.
+
+#### `InvestmentType`
+
+Current values:
+
+- `FIXED_DEPOSIT`
+- `EQUITY`
+- `REAL_ESTATE`
+- `LENDING`
+- `OTHER`
+
+#### `InvestmentStatus`
+
+Current values:
+
+- `DRAFT`
+- `OPEN`
+- `CLOSED`
+- `DISTRIBUTED`
+- `REVERSED`
+
+#### `Investment`
+
+Key fields:
+
+- `investment_id`
+- `title`
+- `investment_type`
+- `invested_to`
+- `invested_amount`
+- `created_date`
+- `comment`
+- `fund_released_at`
+- `fund_released_by`
+- `close_date`
+- `return_amount`
+- `pnl_amount`
+- `closure_comment`
+- `status`
+- `created_by`
+- `created_at`
+- `updated_at`
+
+The model comments indicate a segregation-of-duties rule:
+
+- the user who creates an investment should not be the one who releases its funds
+
+That rule is documented in comments as a service-layer enforcement point, which means the business rule is planned but not enforced directly in the model itself.
+
+### Snapshots
+
+The `snapshots` app stores frozen capital ownership data at the moment an investment opens.
+
+#### `InvestmentSnapshotHeader`
+
+Key fields:
+
+- `snapshot_id`
+- `investment`
+- `total_capital`
+- `member_count`
+- `snapshot_time`
+- `created_by`
+
+Important behavior:
+
+- one-to-one with `Investment`
+- immutable after creation
+
+#### `InvestmentSnapshotLine`
+
+Key fields:
+
+- `snapshot_line_id`
+- `snapshot`
+- `user`
+- `capital_at_snapshot`
+- `ratio`
+
+Important behavior:
+
+- immutable after creation
+- unique per `(snapshot, user)`
+
+Purpose:
+
+- freeze member capital ratios at a point in time
+- ensure later distributions are based on stored ratios, not recomputed live balances
+
+### Distributions
+
+The `distributions` app models profit/loss posting and reversal.
+
+#### `DistributionStatus`
+
+Current values:
+
+- `POSTED`
+- `REVERSED`
+
+#### `InvestmentDistribution`
+
+Key fields:
+
+- `distribution_id`
+- `investment`
+- `snapshot`
+- `pnl_amount`
+- `rounded_total`
+- `remainder_applied`
+- `status`
+- `posted_by`
+- `posted_at`
+- `reversed_by`
+- `reversed_at`
+
+Important rule:
+
+- a conditional unique constraint allows only one `POSTED` distribution per investment
+
+This is an important idempotency safeguard at the database level.
+
+#### `InvestmentDistributionLine`
+
+Key fields:
+
+- `distribution_line_id`
+- `distribution`
+- `user`
+- `ratio_used`
+- `share_amount`
+- `ledger_entry`
+
+Purpose:
+
+- record each member’s share of a distribution
+- connect the distribution calculation to the actual ledger impact
+
+### Reports
+
+The `reports` app is currently partial and inconsistent.
+
+Observed state:
+
+- `reports/views.py` is still the default stub
+- `reports/models.py` contains report query/view logic instead of models
+
+That logic currently defines `member_statement(request)`, which:
+
+- requires login
+- loads a member’s ledger entries
+- loads pending submission requests separately
+- computes current balance from ledger sums
+- renders `reports/member_statement.html`
+
+This should eventually be moved to a proper view module, but it is still useful as proof that cross-app reporting logic has started.
+
+## Current Cross-App Relationships
+
+The current backend already has meaningful relationships across apps:
 
 ```text
-User -> UserPermission -> Permission
+accounts.User
+  ├── permissions.UserPermission.user
+  ├── permissions.UserPermission.granted_by
+  ├── permissions.UserPermission.revoked_by
+  ├── audit.AuditLog.actor
+  ├── submissions.FileAttachment.uploaded_by
+  ├── submissions.CapitalSubmissionRequest.user
+  ├── submissions.CapitalSubmissionRequest.reviewed_by
+  ├── ledger.MemberCapitalLedgerEntry.user
+  ├── ledger.MemberCapitalLedgerEntry.created_by
+  ├── investments.Investment.created_by
+  ├── investments.Investment.fund_released_by
+  ├── snapshots.InvestmentSnapshotHeader.created_by
+  ├── snapshots.InvestmentSnapshotLine.user
+  ├── distributions.InvestmentDistribution.posted_by
+  ├── distributions.InvestmentDistribution.reversed_by
+  └── distributions.InvestmentDistributionLine.user
+
+permissions.Permission
+  └── permissions.UserPermission.permission
+
+members.MemberProfile
+  └── proxy of accounts.User
+
+submissions.CapitalSubmissionRequest
+  ├── one-to-one -> ledger.MemberCapitalLedgerEntry
+  └── one-to-many -> submissions.SubmissionAttachment
+
+submissions.FileAttachment
+  └── linked by submissions.SubmissionAttachment
+
+investments.Investment
+  ├── one-to-one -> snapshots.InvestmentSnapshotHeader
+  └── one-to-many -> distributions.InvestmentDistribution
+
+snapshots.InvestmentSnapshotHeader
+  └── one-to-many -> snapshots.InvestmentSnapshotLine
+
+distributions.InvestmentDistribution
+  └── one-to-many -> distributions.InvestmentDistributionLine
+
+distributions.InvestmentDistributionLine
+  └── foreign key -> ledger.MemberCapitalLedgerEntry
 ```
 
-This means the system does not decide capabilities directly from `role`. Instead, `role` is a coarse classification and actual capabilities are granted through `UserPermission`.
+This is the clearest sign that the project has progressed from a basic scaffold into a connected financial domain model.
 
-## Authentication and Authorization Flow
+## Workflow Direction
 
-### Login Flow
+The comments and model design imply the following workflow architecture:
 
-Authentication uses Django’s standard backend flow with the project user model:
+### Submission Flow
 
-1. Django authenticates a user against `accounts.User`
-2. The login identifier is `contact_no`
-3. Password hashing and verification are handled by Django through `AbstractBaseUser`
+1. A member creates a `CapitalSubmissionRequest`
+2. Optional files are attached through `SubmissionAttachment`
+3. The request remains `PENDING`
+4. On approval, a `MemberCapitalLedgerEntry` is created
+5. The request links to that ledger entry through `resulting_ledger`
 
-### Permission Resolution Flow
+### Investment Flow
 
-Custom permission checks are handled by `accounts.backends.RootPermissionBackend`.
+1. A finance user creates an `Investment` in `DRAFT`
+2. A different authorized user releases funds
+3. When the investment opens, a frozen `InvestmentSnapshotHeader` and related lines are created
+4. On closure, return and P/L information are captured
+5. Distribution logic later uses the stored snapshot ratios
 
-Flow:
+### Distribution Flow
 
-1. Application code calls `user.has_perm('permissions.MANAGE_USERS')` or similar
-2. Django routes the check to `RootPermissionBackend.has_perm()`
-3. The backend rejects anonymous or inactive users
-4. The backend allows Django superusers immediately
-5. The backend extracts the final permission code from the string
-6. The backend calls `user.has_permission(code)`
-7. `User.has_permission()` queries `UserPermission` for an active, non-expired grant
-8. The method returns `True` if such a grant exists, otherwise `False`
+1. A distribution is posted against an `Investment` and its `snapshot`
+2. Member shares are stored in `InvestmentDistributionLine`
+3. Each line links to an actual ledger entry
+4. Reversal is modeled as a new reversal state / compensating pattern rather than editing history
 
-### Decorator-Based Protection
+### Reporting Flow
 
-`permissions.decorators.require_permission(code)` provides a view-level access decorator.
+1. Member balance is derived from the immutable ledger
+2. Pending submission requests are shown separately
+3. Report calculations are cross-app queries, not separate persisted totals
 
-Flow:
+## Maturity Assessment
 
-1. If the request user is not authenticated, the decorator redirects to login
-2. If the user lacks the required permission, it raises `PermissionDenied`
-3. If the user has the permission, the wrapped view executes normally
+The current backend has solid modeling decisions in a few important areas:
 
-This decorator is intended for function-based views and provides a straightforward way to enforce project permissions.
+- custom auth model instead of retrofitting later
+- explicit fine-grained permissions
+- append-only audit logging
+- immutable financial ledger
+- frozen investment snapshots for historical correctness
+- conditional uniqueness for active distributions
 
-## Current URL Surface
+The main immaturity is not the data model. It is the missing execution layer around the model design:
 
-`rootBackend/urls.py` currently exposes only:
+- almost no endpoints
+- almost no services
+- almost no workflow orchestration
+- very limited test coverage
+- partial placement issues in `reports`
 
-- `/admin/`
+## Known Gaps
 
-No API routes or app-specific URLs are connected yet.
+Most important gaps at the current stage:
 
-## Local Setup
+- create real migrations for the implemented apps
+- seed `Permission` data
+- add services for submission approval, investment release, snapshot capture, closure, and distribution posting
+- wire URL patterns and implement real views or APIs
+- move report logic out of `reports/models.py`
+- register and customize the models in Django admin
+- add validation beyond comments where critical business rules exist
+- add automated tests for immutability, constraints, and workflow transitions
 
-Because the repository does not yet include a pinned dependency file, setup is currently manual.
+## Suggested Next Steps
 
-Suggested local workflow:
+Recommended near-term sequence:
 
-1. Create and activate a Python virtual environment
-2. Install Django and the supporting packages used by the project
-3. Create a `.env` file based on `.env.example`
-4. Provision a PostgreSQL database
-5. Run migrations
-6. Create a superuser
-7. Start the development server
+1. Freeze the current data model with migrations
+2. Add seed data for permission codes
+3. Implement service-layer workflows for submissions, investments, snapshots, and distributions
+4. Add serializers and API views
+5. Wire URLs for the first usable endpoints
+6. Add tests around the immutable models and cross-app constraints
+7. Refactor `reports` into a normal Django app structure
 
-Typical commands:
+## Summary
 
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-python manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
+The backend is no longer just a scaffold with auth and permissions. It now contains a real financial-domain model spanning:
 
-Run all commands from the `backend/` directory.
+- user and permission management
+- member lifecycle operations
+- audit logging
+- capital submission requests and file attachments
+- immutable ledger posting
+- investment lifecycle tracking
+- frozen ownership snapshots
+- profit/loss distributions
+- early report logic
 
-## Known Gaps and Follow-Up Work
-
-The backend still needs the following before it can support the full product scope:
-
-- add migration files for `accounts` and `permissions`
-- seed the `Permission` table through a data migration or management command
-- register the models in Django admin
-- define API routes, serializers, and views
-- add tests for authentication, permission checks, and model constraints
-- document and pin dependencies in a `requirements.txt` or `pyproject.toml`
-- add JWT authentication configuration if token-based APIs are planned
-
-## Development Notes
-
-The current backend design uses permission grants instead of relying only on role checks.
-
-This is important because:
-
-- users with the same role can still have different capabilities
-- access can be granted temporarily through `expires_at`
-- access can be revoked without deleting the record
-- permission history remains more auditable than simple boolean flags
-
-When adding new protected operations, prefer checking fine-grained permission codes rather than branching directly on `role`.
+The project is still incomplete from an API and workflow-delivery perspective, but the model layer already represents a serious backend foundation.
