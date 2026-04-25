@@ -29,7 +29,7 @@ from .serializers import (
 
 def _require_permission(request, code: str) -> bool:
     """Returns True if the authenticated user holds the given permission."""
-    return request.user.has_permission(code)
+    return request.user.has_perm(f"permissions.{code}")
 
 
 def _permission_denied():

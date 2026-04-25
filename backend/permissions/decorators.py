@@ -10,7 +10,7 @@ def require_permission(code: str):
             if not request.user.is_authenticated:
                 from django.contrib.auth.views import redirect_to_login
                 return redirect_to_login(request.get_full_path())
-            if not request.user.has_permission(code):
+            if not request.user.has_perm(f"permissions.{code}"):
                 raise PermissionDenied
             return view_func(request, *args, **kwargs)
         return wrapped

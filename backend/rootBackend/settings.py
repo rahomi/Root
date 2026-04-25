@@ -101,7 +101,7 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
         "rest_framework.parsers.MultiPartParser",  # for file uploads
     ],
-    "EXCEPTION_HANDLER": "apps.accounts.exceptions.custom_exception_handler",
+    "EXCEPTION_HANDLER": "accounts.exceptions.custom_exception_handler",
 }
 
 # Simple JWT configuration

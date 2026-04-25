@@ -13,7 +13,7 @@ class RootPermissionBackend(ModelBackend):
         if obj is not None:
             return False
 
-        if user_obj.is_superuser:
+        if user_obj.is_super_admin:
             return True
 
         # perm format: 'permissions.CODE' or just 'CODE'

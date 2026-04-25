@@ -31,6 +31,8 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('role', UserRole.SUPER_ADMIN)
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        if extra_fields['role'] != UserRole.SUPER_ADMIN:
+            raise ValueError('Superuser must have role=SUPER_ADMIN')
         return self.create_user(contact_no, full_name, password, **extra_fields)
 
 
@@ -68,11 +70,27 @@ class User(AbstractBaseUser, PermissionsMixin):
         indexes = [models.Index(fields=['status'])]
         ordering = ['full_name']
 
+    @property
+    def is_super_admin(self) -> bool:
+        return self.role == UserRole.SUPER_ADMIN or self.is_superuser
+
     def __str__(self):
         return f'{self.full_name} ({self.contact_no})'
 
+    def save(self, *args, **kwargs):
+        # Super admins are the single source of truth for unrestricted power.
+        if self.role == UserRole.SUPER_ADMIN:
+            self.is_staff = True
+            self.is_superuser = True
+        else:
+            self.is_staff = False
+            self.is_superuser = False
+        super().save(*args, **kwargs)
+
     def has_permission(self, code: str) -> bool:
         """Check fine-grained capability. Always use this, never check role."""
+        if self.is_super_admin:
+            return True
         now = tz.now()
         return UserPermission.objects.filter(
             user=self,

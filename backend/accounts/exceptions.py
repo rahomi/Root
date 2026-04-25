@@ -18,7 +18,13 @@ def custom_exception_handler(exc, context):
 
     if isinstance(data, dict):
         # Already a dict — pull out detail and errors
-        detail = data.get("detail", "An error occurred.")
+        detail = data.get("detail")
+        if detail is None:
+            non_field_errors = data.get("non_field_errors")
+            if isinstance(non_field_errors, list) and non_field_errors:
+                detail = non_field_errors[0]
+            else:
+                detail = "An error occurred."
         errors = {k: v for k, v in data.items() if k != "detail"}
         response.data = {
             "detail": str(detail) if not isinstance(detail, list) else detail[0],

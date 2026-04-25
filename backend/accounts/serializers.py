@@ -106,7 +106,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         # Only Super Admin can create another Super Admin
         request = self.context.get("request")
         if value == UserRole.SUPER_ADMIN:
-            if not request or request.user.role != UserRole.SUPER_ADMIN:
+            if not request or not request.user.is_super_admin:
                 raise serializers.ValidationError(
                     "Only a Super Admin can assign the Super Admin role."
                 )
@@ -168,7 +168,7 @@ class AdminUserUpdateSerializer(UserUpdateSerializer):
 
     def validate_role(self, value):
         request = self.context.get("request")
-        if value == UserRole.SUPER_ADMIN and request.user.role != UserRole.SUPER_ADMIN:
+        if value == UserRole.SUPER_ADMIN and not request.user.is_super_admin:
             raise serializers.ValidationError(
                 "Only a Super Admin can assign the Super Admin role."
             )
