@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # load environment variables from .env file
 load_dotenv()
@@ -32,6 +33,8 @@ INSTALLED_APPS = [
     'rest_framework',
     # jwt authentication
     'rest_framework_simplejwt',
+    # enable logout blacklisting
+    "rest_framework_simplejwt.token_blacklist",
 
     # load custom apps
     'accounts',
@@ -82,6 +85,53 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'rootBackend.wsgi.application'
 
+# REST Framework configuration
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        # All endpoints require authentication unless explicitly overridden
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.MultiPartParser",  # for file uploads
+    ],
+    "EXCEPTION_HANDLER": "apps.accounts.exceptions.custom_exception_handler",
+}
+
+# Simple JWT configuration
+SIMPLE_JWT = {
+    # Access token: short-lived, used with every API call
+    "ACCESS_TOKEN_LIFETIME":  timedelta(minutes=30),
+ 
+    # Refresh token: longer-lived, used only to get a new access token
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+ 
+    # Rotate refresh token on every use — old one is blacklisted automatically
+    "ROTATE_REFRESH_TOKENS":  True,
+    "BLACKLIST_AFTER_ROTATION": True,
+ 
+    # Signing
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+ 
+    # Header format: Authorization: Bearer <token>
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+ 
+    # Claims — user_id is the UUID PK
+    "USER_ID_FIELD": "user_id",
+    "USER_ID_CLAIM": "user_id",
+ 
+    # Token classes
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
+}
 
 # Database connection to POSTGRESQL, load database credentials from .env
 DATABASES = {
