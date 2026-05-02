@@ -57,7 +57,7 @@ class CapitalSubmissionRequest(models.Model):
     amount = models.DecimalField(max_digits=18, decimal_places=2,
                                              validators=[MinValueValidator(Decimal('0.01'))])
     requested_at = models.DateTimeField(auto_now_add=True)
-    txn_date = models.DateField()
+    txn_date = models.DateField()  # date of the actual payment transaction (not the request creation date)
     payment_channel = models.CharField(max_length=20, choices=PaymentChannel.choices)
     external_reference = models.CharField(max_length=255, blank=True)  # trx ID / bank ref
     notes = models.TextField(blank=True)

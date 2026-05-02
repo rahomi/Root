@@ -184,3 +184,10 @@ STATIC_URL = 'static/'
 
 MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
+
+ATTACHMENT_MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+ATTACHMENT_ALLOWED_TYPES = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+]

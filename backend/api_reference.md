@@ -1,4 +1,4 @@
-# Auth API Reference
+# PHASE 1: # Auth API Reference
 
 Base URL: `/api/`
 All protected endpoints require: `Authorization: Bearer <access_token>`
@@ -177,3 +177,186 @@ Response `200`:
 }
 ```
 `errors` is `null` for non-field errors (auth failures, 403s, 404s).
+
+
+# PHASE 2 — API Reference Submisssions and Ledgers
+
+Base URL: `/api/`
+All endpoints require: `Authorization: Bearer <access_token>`
+
+---
+
+## Submissions
+
+### POST /api/submission/
+Create a capital submission request. Member only.
+
+Request:
+```json
+{
+  "request_type":      "INSTALLMENT",
+  "amount":            "5000.00",
+  "txn_date":          "2024-06-15",
+  "payment_channel":   "BKASH",
+  "external_reference": "TXN123456789",
+  "notes":             "June installment"
+}
+```
+`request_type` options: `INSTALLMENT`, `SUBMISSION`
+`payment_channel` options: `HAND_CASH`, `BKASH`, `BANK`, `OTHER`
+
+Response `201`: Full submission object with `status: "PENDING"`
+
+---
+
+### GET /api/submission/
+Member's own submission. Query params: `?status=PENDING|APPROVED|REJECTED`
+
+Response `200`: Array of submission objects
+
+---
+
+### GET /api/submission/{request_id}/
+Single submission detail. Member sees own, staff with `APPROVE_SUBMISSION` sees all.
+
+---
+
+### POST /api/submission/{request_id}/attachments/
+Upload a file to a PENDING submission. Multipart form data.
+Only the submitting member can upload.
+
+Request: `Content-Type: multipart/form-data`
+Field: `file` (jpeg / png / pdf, max 5 MB)
+
+Response `201`:
+```json
+{
+  "file_id": "uuid",
+  "original_filename": "receipt.pdf",
+  "mime_type": "application/pdf",
+  "byte_size": 204800,
+  "created_at": "...",
+  "signed_url": "/media/serve/attachments/.../receipt.pdf?expires=...&sig=..."
+}
+```
+
+---
+
+### GET /api/submission/queue/
+Pending approval queue. Requires `APPROVE_SUBMISSION`.
+Query params: `?payment_channel=HAND_CASH|BKASH|BANK|OTHER`
+
+Response `200`:
+```json
+{
+  "count": 3,
+  "results": [
+    {
+      "request_id": "uuid",
+      "member_name": "Rahim Uddin",
+      "member_contact": "01800000000",
+      "request_type": "INSTALLMENT",
+      "amount": "5000.00",
+      "payment_channel": "BKASH",
+      "external_reference": "TXN123456789",
+      "notes": "June installment",
+      "requested_at": "...",
+      "attachment_count": 1,
+      "attachments": [...]
+    }
+  ]
+}
+```
+
+---
+
+### POST /api/submission/{request_id}/approve/
+Approve a PENDING request. Requires `APPROVE_SUBMISSION`.
+Body: `{}` (empty)
+
+Response `200`: Updated submission object with `status: "APPROVED"` and `resulting_ledger_id` set.
+
+---
+
+### POST /api/submission/{request_id}/reject/
+Reject a PENDING request. Requires `APPROVE_SUBMISSION`.
+
+Request:
+```json
+{ "rejection_reason": "Payment reference could not be verified." }
+```
+
+Response `200`: Updated submission with `status: "REJECTED"`
+
+---
+
+## Ledger
+
+### GET /api/ledger/
+Member's own ledger statement.
+
+Query params:
+- `?entry_type=SUBMISSION|WITHDRAW|ADJUSTMENT|DISTRIBUTION|DISTRIBUTION_REVERSAL`
+- `?from_date=YYYY-MM-DD`
+- `?to_date=YYYY-MM-DD`
+
+Response `200`:
+```json
+{
+  "current_balance": "15000.00",
+  "pending_total":   "5000.00",
+  "entry_count": 3,
+  "entries": [
+    {
+      "ledger_id": "uuid",
+      "entry_type": "SUBMISSION",
+      "amount": "5000.00",
+      "currency": "BDT",
+      "txn_date": "2024-06-15",
+      "reference_type": "SUBMISSION_REQUEST",
+      "reference_id": "uuid",
+      "comment": "Approved Installment via bKash",
+      "created_by_name": "Admin User",
+      "created_at": "..."
+    }
+  ]
+}
+```
+Note: `current_balance` reflects posted entries only (BR-06).
+`pending_total` is informational — pending requests are NOT in the balance.
+
+---
+
+### GET /api/ledger/members/{user_id}/
+Any member's ledger. Requires `VIEW_ALL_REPORTS`.
+Same response shape as above, plus user info at the top.
+
+---
+
+### POST /api/ledger/admin-post/
+Admin-direct ledger entry. Requires `POST_ADMIN_LEDGER`.
+
+Request:
+```json
+{
+  "user_id":      "uuid",
+  "entry_type":   "ADJUSTMENT",
+  "amount":       "-500.00",
+  "txn_date":     "2024-06-20",
+  "comment":      "Correction for duplicate entry",
+  "reference_id": ""
+}
+```
+`entry_type` allowed values: `SUBMISSION`, `WITHDRAW`, `ADJUSTMENT`
+`amount` sign convention:
+- `SUBMISSION`: must be positive
+- `WITHDRAW`: must be negative
+- `ADJUSTMENT`: positive or negative
+
+Response `201`:
+```json
+{
+  "entry": { ...ledger entry object... },
+  "new_balance": "14500.00"
+}
+```
