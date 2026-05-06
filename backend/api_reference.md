@@ -5,7 +5,7 @@ All protected endpoints require: `Authorization: Bearer <access_token>`
 
 ---
 
-## POST /api/auth/login/
+## POST /api/auth/login/ ✅ implemented
 **Public**
 
 Request:
@@ -46,7 +46,7 @@ Note: old refresh token is blacklisted (ROTATE_REFRESH_TOKENS = True)
 
 ---
 
-## POST /api/auth/logout/
+## POST /api/auth/logout/ ✅ implemented
 **Authenticated**
 
 Request:
@@ -79,7 +79,7 @@ Errors: `400` wrong current password / passwords don't match / weak password
 
 ---
 
-## GET /api/auth/me/
+## GET /api/auth/me/ ✅ implemented
 **Authenticated** — returns current user's profile
 
 Response `200`:
@@ -188,7 +188,7 @@ All endpoints require: `Authorization: Bearer <access_token>`
 
 ## Submissions
 
-### POST /api/submission/
+### POST /api/submission/ ✅ implemented
 Create a capital submission request. Member only.
 
 Request:
@@ -209,14 +209,14 @@ Response `201`: Full submission object with `status: "PENDING"`
 
 ---
 
-### GET /api/submission/
+### GET /api/submission/ ✅ implemented
 Member's own submission. Query params: `?status=PENDING|APPROVED|REJECTED`
 
 Response `200`: Array of submission objects
 
 ---
 
-### GET /api/submission/{request_id}/
+### GET /api/submission/{request_id}/ ✅ implemented
 Single submission detail. Member sees own, staff with `APPROVE_SUBMISSION` sees all.
 
 ---
@@ -292,7 +292,7 @@ Response `200`: Updated submission with `status: "REJECTED"`
 
 ## Ledger
 
-### GET /api/ledger/
+### GET /api/ledger/ ✅ implemented
 Member's own ledger statement.
 
 Query params:

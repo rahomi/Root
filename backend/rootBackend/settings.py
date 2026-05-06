@@ -16,7 +16,15 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+def _csv_env(name, default=""):
+    return [
+        value.strip()
+        for value in os.getenv(name, default).split(",")
+        if value.strip()
+    ]
+
+
+ALLOWED_HOSTS = _csv_env("DJANGO_ALLOWED_HOSTS", "*" if DEBUG else "")
 
 
 # Application definition
@@ -28,6 +36,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    # cross-origin requests for local Flutter web testing
+    'corsheaders',
 
     # rest framework
     'rest_framework',
@@ -58,12 +69,20 @@ AUTHENTICATION_BACKENDS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+CORS_URLS_REGEX = r"^/api/.*$"
+CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS")
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
 ]
 
 ROOT_URLCONF = 'rootBackend.urls'
