@@ -6,6 +6,7 @@ from .views import (
     SubmissionDetailView,
     SubmissionAttachmentView,
     ApprovalQueueView,
+    SubmissionHistoryView,
     ApproveSubmissionView,
     RejectSubmissionView,
 )
@@ -18,6 +19,7 @@ urlpatterns = [
 
     # Admin endpoints
     path("queue/",ApprovalQueueView.as_view(), name="submission-queue"),
+    path("history/", SubmissionHistoryView.as_view(), name="submission-history"),
     path("<uuid:request_id>/approve/",ApproveSubmissionView.as_view(), name="submission-approve"),
     path("<uuid:request_id>/reject/",RejectSubmissionView.as_view(), name="submission-reject"),
 ]

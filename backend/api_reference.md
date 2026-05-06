@@ -113,7 +113,7 @@ Request (all fields optional):
 
 ---
 
-## POST /api/users/
+## POST /api/users/ ✅ implemented
 **Requires: MANAGE_USERS**
 
 Request:
@@ -132,7 +132,7 @@ Response `201`: Full user object (same shape as GET /api/auth/me/)
 
 ---
 
-## GET /api/users/
+## GET /api/users/ ✅ implemented
 **Requires: MANAGE_USERS**
 
 Query params:
@@ -144,7 +144,7 @@ Response `200`: Array of user objects
 
 ---
 
-## GET /api/users/{user_id}/
+## GET /api/users/{user_id}/  ✅ implemented
 **Self or MANAGE_USERS**
 
 Response `200`: Full user object
@@ -242,7 +242,7 @@ Response `201`:
 
 ---
 
-### GET /api/submission/queue/
+### GET /api/submission/queue/ ✅ implemented
 Pending approval queue. Requires `APPROVE_SUBMISSION`.
 Query params: `?payment_channel=HAND_CASH|BKASH|BANK|OTHER`
 
@@ -270,7 +270,45 @@ Response `200`:
 
 ---
 
-### POST /api/submission/{request_id}/approve/
+### GET /api/submission/history/ ✅ implemented
+Reviewed submission history. Returns `APPROVED` and `REJECTED` submissions.
+
+- Users with `APPROVE_SUBMISSION` see all reviewed submissions.
+- Members without `APPROVE_SUBMISSION` see only their own reviewed submissions.
+
+Query params:
+- `?status=APPROVED|REJECTED`
+- `?request_type=INSTALLMENT|SUBMISSION`
+
+Response `200`:
+```json
+{
+  "count": 3,
+  "results": [
+    {
+      "request_id": "uuid",
+      "member_name": "Sabbir Rahman",
+      "member_contact": "01700000000",
+      "request_type": "INSTALLMENT",
+      "amount": "8000.00",
+      "txn_date": "2026-04-17",
+      "payment_channel": "BKASH",
+      "external_reference": "TXN123456789",
+      "status": "APPROVED",
+      "reviewed_at": "2026-04-17T10:30:00Z",
+      "reviewed_by": {
+        "user_id": "uuid",
+        "full_name": "Admin User"
+      },
+      "rejection_reason": ""
+    }
+  ]
+}
+```
+
+---
+
+### POST /api/submission/{request_id}/approve/ ✅ implemented
 Approve a PENDING request. Requires `APPROVE_SUBMISSION`.
 Body: `{}` (empty)
 
@@ -278,7 +316,7 @@ Response `200`: Updated submission object with `status: "APPROVED"` and `resulti
 
 ---
 
-### POST /api/submission/{request_id}/reject/
+### POST /api/submission/{request_id}/reject/ ✅ implemented
 Reject a PENDING request. Requires `APPROVE_SUBMISSION`.
 
 Request:

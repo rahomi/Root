@@ -174,6 +174,38 @@ class QueueSubmissionSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------------------------------------------------------
+# Reviewed submission history
+# ---------------------------------------------------------------------------
+
+class SubmissionHistorySerializer(serializers.ModelSerializer):
+    """
+    Compact serializer for approved/rejected submission history.
+    Designed for reviewed-list UI rows.
+    """
+    member_name = serializers.CharField(source="user.full_name", read_only=True)
+    member_contact = serializers.CharField(source="user.contact_no", read_only=True)
+    reviewed_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CapitalSubmissionRequest
+        fields = [
+            "request_id", "member_name", "member_contact",
+            "request_type", "amount", "txn_date",
+            "payment_channel", "external_reference",
+            "status", "reviewed_at", "reviewed_by", "rejection_reason",
+        ]
+        read_only_fields = fields
+
+    def get_reviewed_by(self, obj):
+        if obj.reviewed_by:
+            return {
+                "user_id": str(obj.reviewed_by.user_id),
+                "full_name": obj.reviewed_by.full_name,
+            }
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Approve / Reject actions
 # ---------------------------------------------------------------------------
 

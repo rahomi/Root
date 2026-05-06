@@ -18,12 +18,14 @@ from .models import (
     CapitalSubmissionRequest,
     FileAttachment,
     SubmissionAttachment,
+    RequestType,
     RequestStatus,
 )
 from .serializers import (
     SubmissionCreateSerializer,
     SubmissionDetailSerializer,
     QueueSubmissionSerializer,
+    SubmissionHistorySerializer,
     AttachmentUploadSerializer,
     RejectSerializer,
 )
@@ -244,6 +246,69 @@ class ApprovalQueueView(APIView):
         return Response(
             {
                 "count":   qs.count(),
+                "results": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Reviewed history: approved/rejected submissions
+# ---------------------------------------------------------------------------
+
+class SubmissionHistoryView(APIView):
+    """
+    GET /api/submissions/history/
+    Returns reviewed submissions: APPROVED and REJECTED by default.
+    Staff with APPROVE_SUBMISSION see all reviewed submissions.
+    Members without that permission see only their own reviewed submissions.
+    Optional filters:
+      ?status=APPROVED|REJECTED
+      ?request_type=INSTALLMENT|SUBMISSION
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = (
+            CapitalSubmissionRequest.objects
+            .filter(status__in=[RequestStatus.APPROVED, RequestStatus.REJECTED])
+            .select_related("user", "reviewed_by")
+            .order_by("-reviewed_at", "-requested_at")
+        )
+
+        if not _has_perm(request, PermissionCode.APPROVE_SUBMISSION):
+            qs = qs.filter(user=request.user)
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            status_filter = status_filter.upper()
+            if status_filter not in [RequestStatus.APPROVED, RequestStatus.REJECTED]:
+                return Response(
+                    {
+                        "detail": "status must be APPROVED or REJECTED.",
+                        "errors": {"status": ["Invalid status filter."]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(status=status_filter)
+
+        request_type_filter = request.query_params.get("request_type")
+        if request_type_filter:
+            request_type_filter = request_type_filter.upper()
+            if request_type_filter not in [RequestType.INSTALLMENT, RequestType.SUBMISSION]:
+                return Response(
+                    {
+                        "detail": "request_type must be INSTALLMENT or SUBMISSION.",
+                        "errors": {"request_type": ["Invalid request_type filter."]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(request_type=request_type_filter)
+
+        serializer = SubmissionHistorySerializer(qs, many=True)
+        return Response(
+            {
+                "count": qs.count(),
                 "results": serializer.data,
             },
             status=status.HTTP_200_OK,
