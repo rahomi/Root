@@ -371,6 +371,43 @@ Same response shape as above, plus user info at the top.
 
 ---
 
+### GET /api/ledger/admin/
+All member ledger entries for the admin ledger screen. Requires `VIEW_ALL_REPORTS`.
+
+Query params:
+- `?entry_type=SUBMISSION|WITHDRAW|ADJUSTMENT|DISTRIBUTION|DISTRIBUTION_REVERSAL`
+- `?from_date=YYYY-MM-DD`
+- `?to_date=YYYY-MM-DD`
+- `?user_id=<uuid>`
+
+Response `200`:
+```json
+{
+  "total_in": "45500.00",
+  "total_out": "5000.00",
+  "entry_count": 4,
+  "entries": [
+    {
+      "ledger_id": "uuid",
+      "user_id": "uuid",
+      "member_name": "Sabbir Rahman",
+      "member_contact": "01700000000",
+      "entry_type": "SUBMISSION",
+      "amount": "8000.00",
+      "currency": "BDT",
+      "txn_date": "2026-04-17",
+      "reference_type": "SUBMISSION_REQUEST",
+      "reference_id": "SR003",
+      "comment": "Hand Cash",
+      "created_by_name": "Admin User",
+      "created_at": "..."
+    }
+  ]
+}
+```
+
+---
+
 ### POST /api/ledger/admin-post/
 Admin-direct ledger entry. Requires `POST_ADMIN_LEDGER`.
 

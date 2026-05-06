@@ -31,6 +31,25 @@ class LedgerEntrySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AdminLedgerEntrySerializer(serializers.ModelSerializer):
+    user_id = serializers.UUIDField(source="user.user_id", read_only=True)
+    member_name = serializers.CharField(source="user.full_name", read_only=True)
+    member_contact = serializers.CharField(source="user.contact_no", read_only=True)
+    created_by_name = serializers.CharField(
+        source="created_by.full_name", read_only=True
+    )
+
+    class Meta:
+        model = MemberCapitalLedgerEntry
+        fields = [
+            "ledger_id", "user_id", "member_name", "member_contact",
+            "entry_type", "amount", "currency", "txn_date",
+            "reference_type", "reference_id", "comment",
+            "created_by_name", "created_at",
+        ]
+        read_only_fields = fields
+
+
 # ---------------------------------------------------------------------------
 # Member ledger statement (entries + running balance + pending total)
 # ---------------------------------------------------------------------------

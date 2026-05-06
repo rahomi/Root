@@ -1,6 +1,7 @@
 # apps/ledger/views.py
 
 from decimal import Decimal
+from django.db import models
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 
@@ -21,6 +22,7 @@ from .models import (
 )
 from .serializers import (
     LedgerEntrySerializer,
+    AdminLedgerEntrySerializer,
     AdminLedgerPostSerializer,
 )
 
@@ -55,6 +57,33 @@ def _compute_pending_total(user):
     return result["total"] or Decimal("0")
 
 
+def _apply_ledger_filters(qs, query_params):
+    entry_type = query_params.get("entry_type")
+    from_date = query_params.get("from_date")
+    to_date = query_params.get("to_date")
+
+    if entry_type:
+        entry_type = entry_type.upper()
+        if entry_type not in EntryType.values:
+            return None, Response(
+                {
+                    "detail": (
+                        "entry_type must be one of: "
+                        f"{', '.join(EntryType.values)}."
+                    ),
+                    "errors": {"entry_type": ["Invalid entry_type filter."]},
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        qs = qs.filter(entry_type=entry_type)
+    if from_date:
+        qs = qs.filter(txn_date__gte=from_date)
+    if to_date:
+        qs = qs.filter(txn_date__lte=to_date)
+
+    return qs, None
+
+
 # ---------------------------------------------------------------------------
 # Member: own ledger statement
 # ---------------------------------------------------------------------------
@@ -83,17 +112,9 @@ class MemberLedgerView(APIView):
             .order_by("txn_date", "created_at")
         )
 
-        # Filters
-        entry_type = request.query_params.get("entry_type")
-        from_date  = request.query_params.get("from_date")
-        to_date    = request.query_params.get("to_date")
-
-        if entry_type:
-            qs = qs.filter(entry_type=entry_type.upper())
-        if from_date:
-            qs = qs.filter(txn_date__gte=from_date)
-        if to_date:
-            qs = qs.filter(txn_date__lte=to_date)
+        qs, err = _apply_ledger_filters(qs, request.query_params)
+        if err:
+            return err
 
         entries         = list(qs)
         current_balance = _compute_balance(user)
@@ -134,16 +155,9 @@ class AdminMemberLedgerView(APIView):
             .order_by("txn_date", "created_at")
         )
 
-        entry_type = request.query_params.get("entry_type")
-        from_date  = request.query_params.get("from_date")
-        to_date    = request.query_params.get("to_date")
-
-        if entry_type:
-            qs = qs.filter(entry_type=entry_type.upper())
-        if from_date:
-            qs = qs.filter(txn_date__gte=from_date)
-        if to_date:
-            qs = qs.filter(txn_date__lte=to_date)
+        qs, err = _apply_ledger_filters(qs, request.query_params)
+        if err:
+            return err
 
         entries         = list(qs)
         current_balance = _compute_balance(user)
@@ -160,6 +174,58 @@ class AdminMemberLedgerView(APIView):
                 "pending_total":   pending_total,
                 "entry_count":     len(entries),
                 "entries":         LedgerEntrySerializer(entries, many=True).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Admin: all ledger entries
+# ---------------------------------------------------------------------------
+
+class AdminLedgerView(APIView):
+    """
+    GET /api/ledger/admin/
+    Staff with VIEW_ALL_REPORTS can view all member ledger entries.
+
+    Query params:
+      ?entry_type=SUBMISSION|WITHDRAW|ADJUSTMENT|DISTRIBUTION|DISTRIBUTION_REVERSAL
+      ?from_date=YYYY-MM-DD
+      ?to_date=YYYY-MM-DD
+      ?user_id=<uuid>
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _has_perm(request, PermissionCode.VIEW_ALL_REPORTS):
+            return _forbidden()
+
+        qs = (
+            MemberCapitalLedgerEntry.objects
+            .select_related("user", "created_by")
+            .order_by("-txn_date", "-created_at")
+        )
+
+        user_id = request.query_params.get("user_id")
+        if user_id:
+            qs = qs.filter(user__user_id=user_id)
+
+        qs, err = _apply_ledger_filters(qs, request.query_params)
+        if err:
+            return err
+
+        totals = qs.aggregate(
+            total_in=Sum("amount", filter=models.Q(amount__gt=0)),
+            total_out=Sum("amount", filter=models.Q(amount__lt=0)),
+        )
+        entries = list(qs)
+
+        return Response(
+            {
+                "total_in": totals["total_in"] or Decimal("0"),
+                "total_out": abs(totals["total_out"] or Decimal("0")),
+                "entry_count": len(entries),
+                "entries": AdminLedgerEntrySerializer(entries, many=True).data,
             },
             status=status.HTTP_200_OK,
         )
