@@ -110,3 +110,66 @@ class AdminLedgerViewTests(TestCase):
             response.data["entries"][0]["ledger_id"],
             str(self.submission.ledger_id),
         )
+
+    def test_admin_can_post_ledger_entry_by_contact_no(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/ledger/admin-post/",
+            {
+                "contact_no": self.member.contact_no,
+                "entry_type": EntryType.SUBMISSION,
+                "amount": "2500.00",
+                "txn_date": "2026-05-07",
+                "comment": "Cash deposit",
+                "reference_id": "CASH-001",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        entry = MemberCapitalLedgerEntry.objects.get(reference_id="CASH-001")
+        self.assertEqual(entry.user, self.member)
+        self.assertEqual(entry.amount, Decimal("2500.00"))
+
+    def test_admin_post_requires_member_identifier(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/ledger/admin-post/",
+            {
+                "entry_type": EntryType.SUBMISSION,
+                "amount": "2500.00",
+                "txn_date": "2026-05-07",
+                "comment": "Cash deposit",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["errors"]["member"],
+            ["Provide either user_id or contact_no."],
+        )
+
+    def test_admin_post_rejects_mismatched_user_id_and_contact_no(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.post(
+            "/api/ledger/admin-post/",
+            {
+                "user_id": str(self.other_member.user_id),
+                "contact_no": self.member.contact_no,
+                "entry_type": EntryType.SUBMISSION,
+                "amount": "2500.00",
+                "txn_date": "2026-05-07",
+                "comment": "Cash deposit",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["errors"]["member"],
+            ["user_id and contact_no refer to different users."],
+        )

@@ -415,7 +415,7 @@ Admin-direct ledger entry. Requires `POST_ADMIN_LEDGER`.
 Request:
 ```json
 {
-  "user_id":      "uuid",
+  "contact_no":   "01700000000",
   "entry_type":   "ADJUSTMENT",
   "amount":       "-500.00",
   "txn_date":     "2024-06-20",
@@ -423,6 +423,8 @@ Request:
   "reference_id": ""
 }
 ```
+Use `contact_no` for admin UI posting. `user_id` is also supported for existing clients; if both are sent, they must refer to the same member.
+
 `entry_type` allowed values: `SUBMISSION`, `WITHDRAW`, `ADJUSTMENT`
 `amount` sign convention:
 - `SUBMISSION`: must be positive

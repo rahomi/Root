@@ -83,7 +83,8 @@ class AdminLedgerPostSerializer(serializers.Serializer):
     Allowed types: SUBMISSION, WITHDRAW, ADJUSTMENT.
     DISTRIBUTION and DISTRIBUTION_REVERSAL are system-generated — not allowed here.
     """
-    user_id      = serializers.UUIDField()
+    user_id      = serializers.UUIDField(required=False)
+    contact_no   = serializers.CharField(required=False, trim_whitespace=True)
     entry_type   = serializers.ChoiceField(
         choices=[(t, t) for t in ADMIN_ALLOWED_ENTRY_TYPES]
     )
@@ -92,15 +93,31 @@ class AdminLedgerPostSerializer(serializers.Serializer):
     comment      = serializers.CharField(min_length=1)
     reference_id = serializers.CharField(required=False, allow_blank=True, default="")
 
-    def validate_user_id(self, value):
-        try:
-            user = User.objects.get(user_id=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("No user found with this ID.")
-        self._target_user = user
-        return value
-
     def validate(self, data):
+        user_id = data.get("user_id")
+        contact_no = data.get("contact_no")
+
+        if not user_id and not contact_no:
+            raise serializers.ValidationError(
+                {"member": "Provide either user_id or contact_no."}
+            )
+
+        try:
+            if contact_no:
+                user = User.objects.get(contact_no=contact_no)
+                if user_id and user.user_id != user_id:
+                    raise serializers.ValidationError(
+                        {"member": "user_id and contact_no refer to different users."}
+                    )
+            else:
+                user = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                {"member": "No user found for the provided identifier."}
+            )
+
+        self._target_user = user
+
         # Withdrawals and adjustments can be negative — but the resulting
         # balance must not go below zero unless policy explicitly allows it.
         entry_type = data.get("entry_type")
