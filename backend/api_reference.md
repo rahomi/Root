@@ -279,6 +279,7 @@ Reviewed submission history. Returns `APPROVED` and `REJECTED` submissions.
 Query params:
 - `?status=APPROVED|REJECTED`
 - `?request_type=INSTALLMENT|SUBMISSION`
+- `?user_id=<uuid>` for admin member profile history
 
 Response `200`:
 ```json
@@ -365,13 +366,13 @@ Note: `current_balance` reflects posted entries only (BR-06).
 
 ---
 
-### GET /api/ledger/members/{user_id}/
+### GET /api/ledger/members/{user_id}/ ✅ implemented
 Any member's ledger. Requires `VIEW_ALL_REPORTS`.
 Same response shape as above, plus user info at the top.
 
 ---
 
-### GET /api/ledger/admin/
+### GET /api/ledger/admin/ ✅ implemented
 All member ledger entries for the admin ledger screen. Requires `VIEW_ALL_REPORTS`.
 
 Query params:

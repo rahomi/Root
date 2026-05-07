@@ -265,6 +265,7 @@ class SubmissionHistoryView(APIView):
     Optional filters:
       ?status=APPROVED|REJECTED
       ?request_type=INSTALLMENT|SUBMISSION
+      ?user_id=<uuid>
     """
     permission_classes = [IsAuthenticated]
 
@@ -278,6 +279,20 @@ class SubmissionHistoryView(APIView):
 
         if not _has_perm(request, PermissionCode.APPROVE_SUBMISSION):
             qs = qs.filter(user=request.user)
+
+        user_id_filter = request.query_params.get("user_id")
+        if user_id_filter:
+            try:
+                user_id = uuid.UUID(user_id_filter)
+            except ValueError:
+                return Response(
+                    {
+                        "detail": "user_id must be a valid UUID.",
+                        "errors": {"user_id": ["Invalid user_id filter."]},
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(user__user_id=user_id)
 
         status_filter = request.query_params.get("status")
         if status_filter:

@@ -107,3 +107,26 @@ class SubmissionHistoryViewTests(TestCase):
         )
         self.assertEqual(response.data["results"][0]["member_name"], "Tania Akter")
         self.assertEqual(response.data["results"][0]["status"], RequestStatus.REJECTED)
+
+    def test_staff_can_filter_reviewed_history_by_user_id(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get(
+            f"/api/submission/history/?user_id={self.member.user_id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(
+            response.data["results"][0]["request_id"],
+            str(self.own_approved.request_id),
+        )
+        self.assertEqual(response.data["results"][0]["member_name"], "Sabbir Rahman")
+
+    def test_history_rejects_invalid_user_id_filter(self):
+        self.client.force_authenticate(self.admin)
+
+        response = self.client.get("/api/submission/history/?user_id=not-a-uuid")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["errors"]["user_id"], ["Invalid user_id filter."])
