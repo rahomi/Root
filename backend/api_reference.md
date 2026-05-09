@@ -1,4 +1,4 @@
-# PHASE 1: # Auth API Reference
+# PHASE 1: # Auth API Reference ✅ Done
 
 Base URL: `/api/`
 All protected endpoints require: `Authorization: Bearer <access_token>`
@@ -179,7 +179,7 @@ Response `200`:
 `errors` is `null` for non-field errors (auth failures, 403s, 404s).
 
 
-# PHASE 2 — API Reference Submisssions and Ledgers
+# PHASE 2 — API Reference Submisssions and Ledgers ✅ Done
 
 Base URL: `/api/`
 All endpoints require: `Authorization: Bearer <access_token>`
